@@ -8,5 +8,6 @@ module.exports = {
         ],
       ],
     },
+    parse_mode: "HTML",
   },
 };

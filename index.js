@@ -7,6 +7,7 @@ data.connect("database/careers_ef.db");
 
 var question = {};
 var feedback = {};
+var answer = {};
 
 bot.onText(/\/start/, (msg) => {
   if (
@@ -27,9 +28,10 @@ bot.onText(/\/start/, (msg) => {
         } else {
           bot.sendMessage(
             msg.from.id,
-            "Привіт, можеш задати питання або залишити відгук про канал або бота. На запитання ти можеш отримати відповідь,<b> відгук залишиться без відповіді)</b>",
-            keyboards.feedback
+            "Привіт, можеш задати питання або залишити відгук про канал або бота. На запитання ти можеш отримати відповідь,<b> відгук залишиться без відповіді)</b>\nЯкщо ти HR, скористайся останньою кнопкою 😏",
+            keyboards.start
           );
+          return;
         }
       }
     );
@@ -37,7 +39,7 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(
     msg.from.id,
     "Можеш задати питання або залишити відгук про канал або бота. На запитання ти можеш отримати відповідь,<b> відгук залишиться без відповіді)</b>",
-    keyboards.feedback
+    keyboards.start
   );
 });
 
@@ -70,28 +72,49 @@ bot.onText(/\/admin ([^;'\"]+)/, (msg, match) => {
 bot.on("message", (msg) => {
   if (msg.from.id in feedback) {
     sendFeedback(msg);
-    delete feedback[msg.from.id];
   }
   if (msg.from.id in question) {
+    sendQuestion(msg);
+  }
+  if (msg.chat.id in answer) {
+    sendAnswer(msg);
   }
 });
 
 bot.on("callback_query", (query) => {
-  switch (query.data) {
-    case "question":
-      question[query.message.chat.id] = {};
-      bot.sendMessage(
-        query.message.chat.id,
-        "Надішли питання в чат, та невдовзі отримаєш відповідь"
-      );
-      break;
-    case "feedback":
-      feedback[query.message.chat.id] = {};
-      bot.sendMessage(
-        query.message.chat.id,
-        "Будемо раді конструктивній критиці та позитивним відгукам! Напиши своє враження:"
-      );
-      break;
+  console.log(query.data);
+  if (query.data === "question") {
+    question[query.message.chat.id] = { message_id: false };
+    bot.sendMessage(
+      query.message.chat.id,
+      "Надішли питання в чат, та невдовзі отримаєш відповідь"
+    );
+    return;
+  }
+  if (query.data === "feedback") {
+    feedback[query.message.chat.id] = {};
+    bot.sendMessage(
+      query.message.chat.id,
+      "Будемо раді конструктивній критиці та позитивним відгукам! Напиши своє враження:"
+    );
+    return;
+  }
+
+  if (query.data.indexOf(".") != -1) {
+    var before_dot = query.data.slice(0, query.data.indexOf("."));
+    var after_dot = query.data.slice(
+      query.data.indexOf(".") + 1,
+      query.data.length
+    );
+    bot.sendMessage(query.message.chat.id, "Надішліть повідомлення", {
+      reply_markup: {
+        inline_keyboard: [[{ text: "Скасувати", callback_data: "cancel" }]],
+      },
+    });
+    answer[query.message.chat.id] = {
+      user_id: before_dot,
+      message_id: after_dot,
+    };
   }
 });
 
@@ -100,8 +123,58 @@ function sendFeedback(msg) {
   admins.forEach((element) => {
     bot.sendMessage(
       element.chat_id,
-      "<b>Відгук від користувача @" + msg.from.username + "</b>\n" + msg.text,
+      "<b>Відгук від користувача @" + msg.from.username + "</b>\n\n" + msg.text,
       { parse_mode: "HTML" }
     );
   });
+  delete feedback[msg.from.id];
+}
+function sendQuestion(msg) {
+  console.log(msg.message_id);
+  const admins = data.run("select * from admins");
+  admins.forEach((element) => {
+    bot.sendMessage(
+      element.chat_id,
+      "<b>Повідомлення від користувача @" +
+        msg.from.username +
+        "</b>\n\n" +
+        msg.text,
+      {
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Відповісти",
+                callback_data: msg.chat.id + "." + msg.message_id,
+              },
+            ],
+          ],
+        },
+      }
+    );
+  });
+  delete question[msg.from.id];
+  bot.sendMessage(
+    msg.chat.id,
+    "Запитання надіслано. Продовжуємо працювати!",
+    keyboards.start
+  );
+}
+function sendAnswer(msg) {
+  bot.sendMessage(answer[msg.chat.id].user_id, msg.text, {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: "Відповісти",
+            callback_data: msg.chat.id + "." + msg.message_id,
+          },
+        ],
+      ],
+    },
+    reply_to_message_id: answer[msg.from.id].message_id,
+  });
+  bot.sendMessage(msg.chat.id, "Повідомлення надіслано");
+  delete answer[msg.chat.id];
 }
