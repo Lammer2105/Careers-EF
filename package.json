@@ -1,0 +1,31 @@
+{
+  "name": "careers_ef",
+  "version": "1.0.0",
+  "description": "bot for Careers EF telegram channel",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lammer2105/Careers-EF.git"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "careers",
+    "knu",
+    "economics"
+  ],
+  "author": "Prime <lammer2105@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Lammer2105/Careers-EF/issues"
+  },
+  "homepage": "https://github.com/Lammer2105/Careers-EF#readme",
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "node-telegram-bot-api": "^0.53.0",
+    "sqlite-sync": "^0.3.9"
+  }
+}
