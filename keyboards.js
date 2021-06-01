@@ -1,13 +1,14 @@
 module.exports = {
-  feedback: {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: "Відгук", callback_data: "feedback" },
-          { text: "Запитання", callback_data: "question" },
-        ],
+  start: {
+    inline_keyboard: [
+      [
+        { text: "Відгук", callback_data: "feedback" },
+        { text: "Запитання", callback_data: "question" },
       ],
-    },
-    parse_mode: "HTML",
+      [{ text: "Запропонувати пост (для HR)", callback_data: "post" }],
+    ],
+  },
+  cancel: {
+    inline_keyboard: [[{ text: "Скасувати", callback_data: "cancel" }]],
   },
 };
