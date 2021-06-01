@@ -65,6 +65,26 @@ bot.onText(/\/admin ([^;'\"]+)/, (msg, match) => {
         }
       }
     );
+  } else if (match[1] === "delete") {
+    data.delete(
+      "admins",
+      {
+        chat_id: parseInt(msg.chat.id),
+      },
+      (callback) => {
+        if (callback.error) {
+          bot.sendMessage(
+            msg.chat.id,
+            "Помилка видалення чату. Напевно чат або вже видалено"
+          );
+        } else {
+          bot.sendMessage(
+            msg.chat.id,
+            "Чат видалення зі списку адміністраторів. Сюди більше не будуть надсилатись повідомлення з боту"
+          );
+        }
+      }
+    );
   } else {
     bot.sendMessage(msg.chat.id, "Невірний пароль");
   }
@@ -84,7 +104,7 @@ bot.on("message", (msg) => {
     post[msg.chat.id].messages.push(msg.message_id);
     bot.sendMessage(
       msg.chat.id,
-      "Повідомлення додано. Надішліть ще або завершіть додавання кнопкою 'Надіслати'",
+      "Повідомлення додано. Надішліть ще або завершіть додавання кнопкою 'Надіслати'. Скасувати додавання - кнопка 'Скасувати'",
       {
         reply_markup: {
           inline_keyboard: [
@@ -97,17 +117,18 @@ bot.on("message", (msg) => {
         },
       }
     );
+    return;
   }
 });
 
 bot.on("callback_query", (query) => {
   if (query.data === "question") {
     question[query.message.chat.id] = { message_id: false };
-    bot.editMessageText(
+    bot.deleteMessage(query.message.chat.id, query.message.message_id);
+    bot.sendMessage(
+      query.message.chat.id,
       "Надішли питання в чат, та невдовзі отримаєш відповідь",
       {
-        message_id: query.message.message_id,
-        chat_id: query.message.chat.id,
         reply_markup: keyboards.cancel,
         parse_mode: "HTML",
       }
@@ -116,12 +137,11 @@ bot.on("callback_query", (query) => {
   }
   if (query.data === "feedback") {
     feedback[query.message.chat.id] = {};
-    bot.sendMessage(query.message.chat.id, "");
-    bot.editMessageText(
+    bot.deleteMessage(query.message.chat.id, query.message.message_id);
+    bot.sendMessage(
+      query.message.chat.id,
       "Будемо раді конструктивній критиці та позитивним відгукам! Напиши своє враження:",
       {
-        message_id: query.message.message_id,
-        chat_id: query.message.chat.id,
         reply_markup: keyboards.cancel,
         parse_mode: "HTML",
       }
@@ -129,55 +149,60 @@ bot.on("callback_query", (query) => {
     return;
   }
   if (query.data === "cancel") {
-    if (query.message.chat.id in question) {
+    if (
+      query.message.chat.id in question ||
+      query.message.chat.id in answer ||
+      query.message.chat.id in feedback ||
+      query.message.chat.id in post
+    ) {
       delete question[query.message.chat.id];
-      bot.editMessageText("Дію скасовано\n" + uk[0].exists_user_start, {
-        message_id: query.message.message_id,
-        chat_id: query.message.chat.id,
-        reply_markup: keyboards.cancel,
-        parse_mode: "HTML",
-      });
-      return;
-    }
-    if (query.message.chat.id in answer) {
       delete answer[query.message.chat.id];
-      bot.editMessageText("Дію скасовано\n" + uk[0].exists_user_start, {
-        message_id: query.message.message_id,
-        chat_id: query.message.chat.id,
-        reply_markup: keyboards.cancel,
-        parse_mode: "HTML",
-      });
-      return;
-    }
-    if (query.message.chat.id in post) {
+      delete feedback[query.message.chat.id];
       delete post[query.message.chat.id];
-      bot.editMessageText(
-        "Надсилання повідомлень скасовано\n" + uk[0].exists_user_start,
+      bot.deleteMessage(query.message.chat.id, query.message.message_id);
+      bot.sendMessage(
+        query.message.chat.id,
+        "Дію скасовано\n" + uk[0].exists_user_start,
         {
-          message_id: query.message.message_id,
-          chat_id: query.message.chat.id,
           reply_markup: keyboards.start,
           parse_mode: "HTML",
         }
       );
     }
+
+    return;
+  }
+
+  if (query.data === "post") {
+    post[query.message.chat.id] = { messages: [] };
+    bot.deleteMessage(query.message.chat.id, query.message.message_id);
+    bot.sendMessage(
+      query.message.chat.id,
+      "Надсилайте декілька повідомлень, а потім натисніть кнопку 'Надіслати ✔️':",
+      {
+        reply_markup: keyboards.cancel,
+      }
+    );
     return;
   }
   if (query.data === "send_post") {
     if (query.message.chat.id in post) {
       sendPost(query);
       bot.editMessageText(
-        "Повідомлення надіслані до команди Careers EF. Очікуйте затвердження від команди",
+        "Повідомлення надіслані до команди Careers EF. Очікуйте підтвердження від команди",
         {
           message_id: query.message.message_id,
           chat_id: query.message.chat.id,
-          reply_markup: keyboards.start,
           parse_mode: "HTML",
         }
       );
+      bot.sendMessage(msg.chat.id, uk[0].exists_user_start, {
+        reply_markup: keyboards.start,
+        parse_mode: "HTML",
+      });
     } else {
       bot.editMessageText(
-        "Спочатку натисніть кнопку 'Запропонувати пост'\n" +
+        "<b>Спочатку натисніть кнопку 'Запропонувати пост'</b>\n" +
           uk[0].exists_user_start,
         {
           message_id: query.message.message_id,
@@ -189,18 +214,7 @@ bot.on("callback_query", (query) => {
     }
     return;
   }
-  if (query.data === "post") {
-    post[query.message.chat.id] = { messages: [] };
-    bot.editMessageText(
-      "Якщо хочете надіслати декілька повідомлень, просто надсилайте скільки потрібно, а потім натисніть кнопку 'Надіслати ✔️'. Відбудеться надсилання повідомлень до команди Careers EF:",
-      {
-        message_id: query.message.message_id,
-        chat_id: query.message.chat.id,
-        reply_markup: keyboards.cancel,
-      }
-    );
-    return;
-  }
+
   if (query.data.indexOf(".") != -1) {
     var before_dot = query.data.slice(0, query.data.indexOf("."));
     var after_dot = query.data.slice(
@@ -225,14 +239,47 @@ bot.on("callback_query", (query) => {
       );
       return;
     }
-
+    if (before_dot === "approve") {
+      bot.sendMessage(
+        query.message.chat.id,
+        "Схвалення. Напишіть коментар, якщо він не потрібен, напишіть 0:",
+        {
+          reply_markup: keyboards.cancel,
+        }
+      );
+      answer[query.message.chat.id] = {
+        user_id: parseInt(after_dot),
+        message_id: false,
+        approve_msg_id: query.message.message_id,
+      };
+      return;
+    }
+    if (before_dot === "reject") {
+      bot.sendMessage(
+        query.message.chat.id,
+        "Відхилення. Напишіть коментар, якщо він не потрібен, напишіть 0:",
+        {
+          reply_markup: keyboards.cancel,
+        }
+      );
+      answer[query.message.chat.id] = {
+        user_id: parseInt(after_dot),
+        message_id: false,
+        reject_msg_id: query.message.message_id,
+      };
+      return;
+    }
     if (
       Number.isInteger(parseInt(before_dot)) &&
       Number.isInteger(parseInt(after_dot))
     ) {
-      bot.sendMessage(query.message.chat.id, "Надішліть повідомлення", {
-        reply_markup: keyboards.cancel,
-      });
+      bot.sendMessage(
+        query.message.chat.id,
+        "Надішли відповідь на повідомлення:",
+        {
+          reply_markup: keyboards.cancel,
+        }
+      );
       answer[query.message.chat.id] = {
         user_id: before_dot,
         message_id: after_dot,
@@ -251,7 +298,8 @@ function sendFeedback(msg) {
     );
   });
   delete feedback[msg.chat.id];
-  bot.sendMessage(msg.chat.id, "Відгук надіслано. Дякую!", {
+  bot.sendMessage(msg.chat.id, "Відгук надіслано. Дякую!");
+  bot.sendMessage(msg.chat.id, uk[0].exists_user_start, {
     reply_markup: keyboards.start,
     parse_mode: "HTML",
   });
@@ -281,13 +329,68 @@ function sendQuestion(msg) {
     );
   });
   delete question[msg.chat.id];
-  bot.sendMessage(msg.chat.id, "Запитання надіслано. Продовжуємо працювати!", {
+  bot.sendMessage(msg.chat.id, "Запитання надіслано. Продовжуємо працювати!");
+  bot.sendMessage(msg.chat.id, uk[0].exists_user_start, {
     reply_markup: keyboards.start,
     parse_mode: "HTML",
   });
 }
 function sendAnswer(msg) {
-  bot.sendMessage(answer[msg.chat.id].user_id, msg.text, {
+  var text = msg.text;
+  if (answer[msg.chat.id].approve) {
+    text = "<b>Пропозицію схвалено.</b>";
+    if (msg.text !== "0") {
+      text += " Коментар:\n" + msg.text;
+    }
+    bot.editMessageReplyMarkup(
+      {
+        inline_keyboard: [
+          [
+            {
+              text: "✅ Схвалено",
+              callback_data: "-",
+            },
+            {
+              text: "Відхилити",
+              callback_data: "-",
+            },
+          ],
+        ],
+      },
+      {
+        message_id: answer[msg.chat.id].approve_msg_id,
+        chat_id: msg.chat.id,
+      }
+    );
+  }
+  if (answer[msg.chat.id].reject) {
+    text = "<b>Пропозицію відхилено.</b>";
+    if (msg.text !== "0") {
+      text += " Коментар:\n" + msg.text;
+    }
+    bot.editMessageReplyMarkup(
+      {
+        inline_keyboard: [
+          [
+            {
+              text: "Схвалити",
+              callback_data: "-",
+            },
+            {
+              text: "❌ Відхилено",
+              callback_data: "-",
+            },
+          ],
+        ],
+      },
+      {
+        message_id: answer[msg.chat.id].reject_msg_id,
+        chat_id: msg.chat.id,
+      }
+    );
+  }
+
+  bot.sendMessage(answer[msg.chat.id].user_id, text, {
     reply_markup: {
       inline_keyboard: [
         [
@@ -299,8 +402,9 @@ function sendAnswer(msg) {
       ],
     },
     reply_to_message_id: answer[msg.chat.id].message_id,
+    parse_mode: "HTML",
   });
-  bot.sendMessage(msg.chat.id, "Повідомлення надіслано");
+  bot.sendMessage(msg.chat.id, "Відповідь надіслано");
   delete answer[msg.chat.id];
 }
 async function sendPost(query) {
