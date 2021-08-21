@@ -1,6 +1,10 @@
 const data = require("sqlite-sync");
 data.connect("database/careers_ef.db");
+let adminPanelMenu = [
+  [{ text: "« Admin panel »", callback_data: "supermoderator" }],
+];
 module.exports = {
+  adminPanelMenu: adminPanelMenu,
   sleep: function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   },
@@ -323,8 +327,8 @@ module.exports = {
             });
           }
           if (query == "users") {
+            keyboard.push([]);
             if (data.run("select count(*) as cnt from ignorelist")[0].cnt > 0) {
-              keyboard.push([]);
               keyboard[1].push({
                 text: "📃 Ignore list",
                 callback_data: "ignorelist&0",
@@ -333,7 +337,7 @@ module.exports = {
             keyboard[1].push({ text: "📩 Malling", callback_data: "malling" });
             keyboard.push([]);
             keyboard[2].push({
-              text: "➕ Add user to list",
+              text: "➕ Add user to ignore list",
               callback_data: "ignore%add",
             });
           }
@@ -492,36 +496,6 @@ module.exports = {
           return;
         }
 
-        if (input.data == "statistics") {
-          var text = "";
-          var eduprogs_statistics = data.run(
-            "select eduprogs.name, number_of_visits from statistics inner join eduprogs on statistics.name = eduprogs.query"
-          );
-          var keyboard_statistics = data.run(
-            "select * from statistics inner join menu_keyboard on statistics.name = menu_keyboard.callback_data"
-          );
-          for (let i = 0; i < eduprogs_statistics.length; i++) {
-            const eduprog = eduprogs_statistics[i];
-            text += eduprog.name + " " + eduprog.number_of_visits + "\n";
-          }
-          for (let i = 0; i < keyboard_statistics.length; i++) {
-            const element_keyb = keyboard_statistics[i];
-            if (
-              element_keyb.callback_data == "ask" ||
-              element_keyb.callback_data == "cancel"
-            )
-              continue;
-            text +=
-              element_keyb.text + " " + element_keyb.number_of_visits + "\n";
-          }
-          mainBot.editMessageText(text, {
-            parse_mode: "HTML",
-            chat_id: chatId,
-            message_id: input.message.message_id,
-            reply_markup: { inline_keyboard: adminPanelMenu },
-          });
-          return;
-        }
         //! before and after dot input
         var before_dot = input.data.slice(0, input.data.indexOf("."));
         var after_dot = parseInt(
@@ -728,6 +702,22 @@ module.exports = {
   },
 };
 
+function keyboardForSuperadmin() {
+  var keyboard = [
+    [
+      {
+        text: "😎 Admins",
+        callback_data: "admins&0",
+      },
+      {
+        text: "🧑‍💻 Users",
+        callback_data: "users&0",
+      },
+    ],
+  ];
+  return keyboard;
+}
+
 function createTables() {
   data.run(
     `create table if not exists admins(
@@ -762,6 +752,16 @@ function createTables() {
       if (callback.error) {
         console.log("failed");
       } else console.log("succes");
+    }
+  );
+  data.run(
+    `create table if not exists ignorelist(
+        user_id bigint primary key
+    )`,
+    (callback) => {
+      if (callback.error) {
+        console.log("failed ignorelist");
+      } else console.log("succes ignorelist");
     }
   );
 }
